@@ -1,19 +1,16 @@
-# SteerViT
-
-<p align="center">
-  <strong>Steerable Visual Representations</strong>
-</p>
-
-<p align="center">
-  <a href="https://jonaruthardt.github.io" target="_blank">Jona Ruthardt</a><sup>1,*</sup>
-  ·
-  <a href="https://manugaurdl.github.io" target="_blank">Manu Gaur</a><sup>2,*</sup>
-  ·
-  <a href="https://www.cs.cmu.edu/~deva/" target="_blank">Deva Ramanan</a><sup>2</sup>
-  ·
-  <a href="https://scholar.google.com/citations?user=rJotb-YAAAAJ" target="_blank">Makarand Tapaswi</a><sup>3,†</sup>
-  ·
-  <a href="https://yukimasano.github.io" target="_blank">Yuki M. Asano</a><sup>1,†</sup>
+<p>
+  <h2 align="center">SteerViT: Steerable Visual Representations</h2>
+  <p align="center">
+    <a href="https://jonaruthardt.github.io" target="_blank">Jona Ruthardt</a><sup>1,*</sup>
+    ·
+    <a href="https://manugaurdl.github.io" target="_blank">Manu Gaur</a><sup>2,*</sup>
+    ·
+    <a href="https://www.cs.cmu.edu/~deva/" target="_blank">Deva Ramanan</a><sup>2</sup>
+    ·
+    <a href="https://scholar.google.com/citations?user=rJotb-YAAAAJ" target="_blank">Makarand Tapaswi</a><sup>3,†</sup>
+    ·
+    <a href="https://yukimasano.github.io" target="_blank">Yuki M. Asano</a><sup>1,†</sup>
+  </p>
 </p>
 
 <p align="center">
