@@ -18,6 +18,7 @@ class SteerViT(nn.Module):
         self._device = torch.device("cpu")
         self.attention_extractor = None
         self._gate_params = {}
+        self._gate_factor = 1.0
 
         #### Load Vision Model ####
         self.vision_model = ViTBackbone(config["vision_encoder"])
@@ -51,7 +52,11 @@ class SteerViT(nn.Module):
         nn.init.constant_(self.lin_seg_head.bias, 0)
 
     def to(self, device):
-        super().to(device)
+        # super().to(device)
+        self.text_model = self.text_model.to(device)
+        self.vision_model = self.vision_model.to(device)
+        self.connector = self.connector.to(device)
+        self.lin_seg_head = self.lin_seg_head.to(device)
         self._device = device
         return self
     
@@ -76,6 +81,8 @@ class SteerViT(nn.Module):
             checkpoint["state_dict"],
             strict=False,
         )
+        for param in model.parameters():
+            param.requires_grad = False
         model.eval()
         if device is not None:
             model = model.to(device)
@@ -99,28 +106,36 @@ class SteerViT(nn.Module):
         transform = create_transform(**vision_config)
         return transform
 
-    def forward(self, images: torch.Tensor, texts: torch.Tensor):
-        assert images.size(0) == len(texts), "Batch size of images and texts must match"
-        roberta_dict = self.tokenizer(texts, padding=True, truncation=True,max_length=512, return_tensors='pt')
-        roberta_dict = {k: v.to(self.text_model.device) for k, v in roberta_dict.items()}
-        text_feats = self.text_model(**roberta_dict).last_hidden_state
-        attn_mask = roberta_dict['attention_mask'].bool()
+    def forward(self, images: torch.Tensor, texts: torch.Tensor = None):
+        if texts is not None:
+            # Text conditioning
+            assert images.size(0) == len(texts), "Batch size of images and texts must match"
+            
+            roberta_dict = self.tokenizer(texts, padding=True, truncation=True,max_length=512, return_tensors='pt')
+            roberta_dict = {k: v.to(self.text_model.device) for k, v in roberta_dict.items()}
+            text_feats = self.text_model(**roberta_dict).last_hidden_state
+            attn_mask = roberta_dict['attention_mask'].bool()
 
-        text_feats = F.normalize(text_feats, dim=-1) #precomputed text feats
-        text_feats = self.connector(text_feats)
-        
-        pos_ids = torch.arange(text_feats.size(1), dtype = torch.long, device = text_feats.device)
-        pos_ids = pos_ids.unsqueeze(0).expand(text_feats.shape[0], -1)
-        attn_mask = torch.cat((torch.ones(text_feats.size(0), self.num_img_tokens).bool().to(attn_mask.device), attn_mask), dim= -1)
+            text_feats = F.normalize(text_feats, dim=-1) #precomputed text feats
+            text_feats = self.connector(text_feats)
+            
+            pos_ids = torch.arange(text_feats.size(1), dtype = torch.long, device = text_feats.device)
+            pos_ids = pos_ids.unsqueeze(0).expand(text_feats.shape[0], -1)
+            attn_mask = torch.cat((torch.ones(text_feats.size(0), self.num_img_tokens).bool().to(attn_mask.device), attn_mask), dim= -1)
+        else:
+            # Equivalent to vanilla base ViT model
+            text_feats = attn_mask = None
         
         img_feats = self.vision_model(images, text_feats, attn_mask = attn_mask) #text conditioned img feats
 
         return img_feats
     
-    def get_dense_features(self, images: torch.Tensor, texts: list[str]):
+    @torch.no_grad()
+    def get_dense_features(self, images: torch.Tensor, texts: list[str] = None):
         return self.forward(images.to(self._device), texts)[:, self.vision_model.trunk.num_prefix_tokens:, :]
 
-    def get_global_features(self, images: torch.Tensor, texts: list[str]):
+    @torch.no_grad()
+    def get_global_features(self, images: torch.Tensor, texts: list[str] = None):
         feats = self.forward(images.to(self._device), texts)
         if self.feature_aggregation == 'cls':
             return feats[:, 0, :]
@@ -129,16 +144,16 @@ class SteerViT(nn.Module):
         else:
             raise NotImplementedError(f"Feature aggregation {self.feature_aggregation} not implemented")
 
-
     @torch.no_grad()
-    def get_heatmaps(self, images: torch.Tensor, texts: list[str]):
+    def get_heatmaps(self, images: torch.Tensor, texts: list[str] = None):
         img_feats = self.forward(images.to(self._device), texts)[:, self.vision_model.trunk.num_prefix_tokens:, :]
         heatmap_logits = self.lin_seg_head(img_feats).squeeze(-1)
         heatmaps = F.softmax(heatmap_logits, dim=1).view(images.size(0), 1, self.image_size[0] // self.patch_size, self.image_size[1] // self.patch_size)
         heatmaps = F.interpolate(heatmaps, size=self.image_size, mode='bilinear', align_corners=False)
         return heatmaps
 
-    def get_attention_heatmaps(self, images: torch.Tensor, texts: list[str], **kwargs):
+    @torch.no_grad()
+    def get_attention_heatmaps(self, images: torch.Tensor, texts: list[str] = None, **kwargs):
         if self.attention_extractor is None:
             self.attention_extractor = TCAttentionExtract(
                 model=self,
@@ -150,9 +165,8 @@ class SteerViT(nn.Module):
             imgs=images.to(self._device), texts=texts, num_prefix_tokens=self.vision_model.trunk.num_prefix_tokens, **kwargs)
         
         return heatmaps
-
+    
     def set_gate_factor(self, factor: float):
-        print(f"Setting cross-attention gate factor to {factor}")
         for blk_idx, blk in enumerate(self.vision_model.trunk.blocks):
             gca = getattr(blk, "gated_cross_attn", None)
             if gca is not None:
@@ -166,6 +180,7 @@ class SteerViT(nn.Module):
                     gca.attn_gate.copy_(self._gate_params[blk_idx]["attn_gate"] * float(factor))
                     if hasattr(gca, "ff_gate"):
                         gca.ff_gate.copy_(self._gate_params[blk_idx]["ff_gate"] * float(factor))
+        self._gate_factor = factor
     
 class Connector(nn.Module):
     def __init__(self, input_dim, output_dim=1152):

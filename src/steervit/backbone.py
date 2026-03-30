@@ -13,7 +13,7 @@ def block_forward(self, x):
     """
     x, text_feats, attn_mask = x
     
-    if self.gated_cross_attn is not None:
+    if self.gated_cross_attn is not None and text_feats is not None:
         """x --> x + CA(LN(img),text)--> x"""
         x = self.gated_cross_attn(x, text_feats, attn_mask = attn_mask)
         
