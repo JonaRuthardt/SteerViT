@@ -48,3 +48,5 @@ htmlcov/
 
 # OS files
 .DS_Store
+
+coco_val_only/
