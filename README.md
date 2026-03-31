@@ -1,5 +1,5 @@
 <p>
-  <h2 align="center">SteerViT: Steerable Visual Representations</h2>
+  <h2 align="center">Steerable Visual Representations</h2>
   <p align="center">
     <a href="https://jonaruthardt.github.io" target="_blank">Jona Ruthardt</a><sup>1,*</sup>
     ·
