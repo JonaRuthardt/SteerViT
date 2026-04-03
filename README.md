@@ -32,7 +32,7 @@
     <img src="https://img.shields.io/badge/Project-Website-0A66C2.svg" alt="Project Website">
   </a>
   <a href="https://arxiv.org/abs/TODO.TODO">
-    <img src="https://img.shields.io/badge/arXiv-TODO.TODO-b31b1b.svg" alt="arXiv">
+    <img src="https://img.shields.io/badge/arXiv-2604.02327-b31b1b.svg" alt="arXiv">
   </a>
   <a href="https://colab.research.google.com/drive/1Lf-95znqXaWUGyY9bPeJQI9Eq7yBcpFl?usp=sharing">
     <img src="https://img.shields.io/badge/Colab-Demo-F9AB00.svg?logo=googlecolab&logoColor=white" alt="Colab Demo">
