@@ -31,7 +31,7 @@
   <a href="https://jonaruthardt.github.io/project/SteerViT/">
     <img src="https://img.shields.io/badge/Project-Website-0A66C2.svg" alt="Project Website">
   </a>
-  <a href="https://arxiv.org/abs/TODO.TODO">
+  <a href="https://arxiv.org/abs/2604.02327">
     <img src="https://img.shields.io/badge/arXiv-2604.02327-b31b1b.svg" alt="arXiv">
   </a>
   <a href="https://colab.research.google.com/drive/1Lf-95znqXaWUGyY9bPeJQI9Eq7yBcpFl?usp=sharing">
@@ -173,10 +173,10 @@ The current release focuses on inference and qualitative exploration. Training a
 If you use SteerViT in your research, please cite:
 
 ```bibtex
-@article{ruthardt2026steervit,
-  title   = {Steerable Visual Representations},
-  author  = {Jona Ruthardt and Manu Gaur and Deva Ramanan and Makarand Tapaswi and Yuki M. Asano},
-  journal = {Arxiv},
-  year    = {2026}
+@misc{ruthardt2026steervit,
+      title={Steerable Visual Representations}, 
+      author={Jona Ruthardt and Manu Gaur and Deva Ramanan and Makarand Tapaswi and Yuki M. Asano},
+      journal={arXiv:2604.02327},
+      year={2026}
 }
 ```
