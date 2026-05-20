@@ -51,7 +51,7 @@
 
 SteerViT equips pretrained Vision Transformers with **steerable global and local visual representations**. Given an image and a natural-language prompt, the model conditions the visual encoder itself through lightweight gated cross-attention, producing prompt-aware patch features, global embeddings, and heatmaps while retaining the strengths of the pretrained ViT backbone.
 
-> 🔔 Model checkpoints and inference code are available already. Full training and evaluation code will be released soon.
+> 🔔 Model checkpoints, inference code, and the CORE evaluation script are available already. Full training code will be released soon.
 
 ## ✈️ Overview
 
@@ -166,7 +166,19 @@ For an interactive walkthrough, use one of the following:
 - [Colab](https://colab.research.google.com/drive/1Lf-95znqXaWUGyY9bPeJQI9Eq7yBcpFl?usp=sharing)
 - [Local notebook](demo.ipynb)
 
-The current release focuses on inference and qualitative exploration. Training and full evaluation pipelines will be added in a future code release.
+The current release focuses on inference, qualitative exploration, and CORE evaluation. Training code and additional evaluation pipelines will be added in a future code release.
+
+## 🧪 CORE Evaluation
+
+This repository includes the CORE benchmark evaluation used in the paper. The script loads the [CORE dataset on Hugging Face](https://huggingface.co/datasets/JonaRuthardt/CORE), encodes each scene with the object-specific prompts, and reports retrieval Precision@k.
+
+```bash
+python core_eval.py \
+  --checkpoint steervit_dinov2_base.pth \
+  --k 1 --output core_results.json
+```
+
+Use `--checkpoint` with either a local checkpoint path or one of the released checkpoint filenames from the SteerViT Hugging Face model repository.
 
 ## BibTeX
 
