@@ -28,9 +28,9 @@ class SteerViT(nn.Module):
         assert self.feature_aggregation in ["cls", "mean"], "Feature aggregation must be either 'cls' or 'mean'"
         if self.feature_aggregation == "cls":
             assert self.vision_model.trunk.num_prefix_tokens > 0, "Model must have a cls token for cls feature aggregation"
-        
+
         self.visual_dim = self.vision_model.trunk.embed_dim
-        
+
         #### Load Language Model ####
         text_encoder = config['text_encoder']
         if "roberta" in text_encoder.lower():
@@ -59,7 +59,7 @@ class SteerViT(nn.Module):
         self.lin_seg_head = self.lin_seg_head.to(device)
         self._device = device
         return self
-    
+
     @classmethod
     def from_pretrained(cls, checkpoint_name, device=None):
         if os.path.isfile(checkpoint_name):
@@ -91,26 +91,26 @@ class SteerViT(nn.Module):
     @property
     def patch_size(self):
         return self.vision_model.trunk.patch_embed.patch_size[0]
-    
+
     @property
     def feature_dim(self):
         return self.vision_model.trunk.embed_dim
-    
+
     @property
     def image_size(self):
         return (self.vision_model.resolution, self.vision_model.resolution)
-    
+
     def get_transforms(self):
         vision_config = resolve_data_config({}, model=self.vision_model.trunk)
         vision_config["input_size"] = (3, self.image_size[0], self.image_size[1])
         transform = create_transform(**vision_config)
         return transform
 
-    def forward(self, images: torch.Tensor, texts: torch.Tensor = None):
+    def forward(self, images: torch.Tensor, texts: list[str] = None, return_segmentation_logits=False):
         if texts is not None:
             # Text conditioning
             assert images.size(0) == len(texts), "Batch size of images and texts must match"
-            
+
             roberta_dict = self.tokenizer(texts, padding=True, truncation=True,max_length=512, return_tensors='pt')
             roberta_dict = {k: v.to(self.text_model.device) for k, v in roberta_dict.items()}
             text_feats = self.text_model(**roberta_dict).last_hidden_state
@@ -118,18 +118,23 @@ class SteerViT(nn.Module):
 
             text_feats = F.normalize(text_feats, dim=-1) #precomputed text feats
             text_feats = self.connector(text_feats)
-            
+
             pos_ids = torch.arange(text_feats.size(1), dtype = torch.long, device = text_feats.device)
             pos_ids = pos_ids.unsqueeze(0).expand(text_feats.shape[0], -1)
             attn_mask = torch.cat((torch.ones(text_feats.size(0), self.num_img_tokens).bool().to(attn_mask.device), attn_mask), dim= -1)
         else:
             # Equivalent to vanilla base ViT model
             text_feats = attn_mask = None
-        
+
         img_feats = self.vision_model(images, text_feats, attn_mask = attn_mask) #text conditioned img feats
 
+        if return_segmentation_logits:
+            return self.get_heatmap_logits(img_feats)
         return img_feats
-    
+
+    def get_heatmap_logits(self, img_feats):
+        return self.lin_seg_head(img_feats[:, self.vision_model.trunk.num_prefix_tokens:, :]).squeeze(-1)
+
     @torch.no_grad()
     def get_dense_features(self, images: torch.Tensor, texts: list[str] = None):
         return self.forward(images.to(self._device), texts)[:, self.vision_model.trunk.num_prefix_tokens:, :]
@@ -138,6 +143,7 @@ class SteerViT(nn.Module):
     def get_global_features(self, images: torch.Tensor, texts: list[str] = None):
         feats = self.forward(images.to(self._device), texts)
         if self.feature_aggregation == 'cls':
+            assert self.vision_model.trunk.num_prefix_tokens > 0, "Model must have a cls token for cls feature aggregation"
             return feats[:, 0, :]
         elif self.feature_aggregation == 'mean':
             return torch.mean(feats[:, self.vision_model.trunk.num_prefix_tokens:, :], dim=1)
@@ -146,8 +152,7 @@ class SteerViT(nn.Module):
 
     @torch.no_grad()
     def get_heatmaps(self, images: torch.Tensor, texts: list[str] = None):
-        img_feats = self.forward(images.to(self._device), texts)[:, self.vision_model.trunk.num_prefix_tokens:, :]
-        heatmap_logits = self.lin_seg_head(img_feats).squeeze(-1)
+        heatmap_logits = self.get_heatmap_logits(self.forward(images.to(self._device), texts))
         heatmaps = F.softmax(heatmap_logits, dim=1).view(images.size(0), 1, self.image_size[0] // self.patch_size, self.image_size[1] // self.patch_size)
         heatmaps = F.interpolate(heatmaps, size=self.image_size, mode='bilinear', align_corners=False)
         return heatmaps
@@ -160,12 +165,12 @@ class SteerViT(nn.Module):
                 mode='eval',
                 method='hook',
             )
-        
+
         heatmaps = self.attention_extractor.get_attention_heatmaps(
             imgs=images.to(self._device), texts=texts, num_prefix_tokens=self.vision_model.trunk.num_prefix_tokens, **kwargs)
-        
+
         return heatmaps
-    
+
     def set_gate_factor(self, factor: float):
         for blk_idx, blk in enumerate(self.vision_model.trunk.blocks):
             gca = getattr(blk, "gated_cross_attn", None)
@@ -181,24 +186,24 @@ class SteerViT(nn.Module):
                     if hasattr(gca, "ff_gate"):
                         gca.ff_gate.copy_(self._gate_params[blk_idx]["ff_gate"] * float(factor))
         self._gate_factor = factor
-    
+
 class Connector(nn.Module):
     def __init__(self, input_dim, output_dim=1152):
         super().__init__()
-        
+
         self.mlp = nn.Sequential(
             nn.Linear(input_dim, input_dim),
             nn.ReLU(),
             nn.Linear(input_dim, output_dim, bias=True)
         )
         self._initialize_weights()
-        
+
     def _initialize_weights(self):
         for m in self.mlp:
             if isinstance(m, nn.Linear):
                 nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='relu')
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
-                    
+
     def forward(self, x):
         return self.mlp(x)

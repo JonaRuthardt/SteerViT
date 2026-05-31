@@ -40,6 +40,9 @@
   <a href="https://huggingface.co/JonaRuthardt/SteerViT">
     <img src="https://img.shields.io/badge/Hugging%20Face-Model%20Weights-F9AB00.svg?logo=huggingface&logoColor=yellow" alt="Hugging Face Weights">
   </a>
+  <a href="https://huggingface.co/datasets/JonaRuthardt/SteerViT">
+    <img src="https://img.shields.io/badge/Hugging%20Face-Training%20Data-F9AB00.svg?logo=huggingface&logoColor=yellow" alt="Hugging Face Training Data">
+  </a>
   <a href="https://opensource.org/license/mit">
     <img src="https://img.shields.io/badge/License-MIT-red.svg" alt="MIT License">
   </a>
@@ -50,8 +53,6 @@
 </p>
 
 SteerViT equips pretrained Vision Transformers with **steerable global and local visual representations**. Given an image and a natural-language prompt, the model conditions the visual encoder itself through lightweight gated cross-attention, producing prompt-aware patch features, global embeddings, and heatmaps while retaining the strengths of the pretrained ViT backbone.
-
-> 🔔 Model checkpoints, inference code, and the CORE evaluation script are available already. Full training code will be released soon.
 
 ## ✈️ Overview
 
@@ -125,6 +126,63 @@ The released demo currently uses the following checkpoint identifiers:
 - a local checkpoint path, or
 - a checkpoint filename hosted on [🤗 Hugging Face](https://huggingface.co/JonaRuthardt/SteerViT)
 
+## 🏋️ Training
+
+By default, SteerViT training optimizes the parameters of the gated cross-attention layers, the text-to-vision connector, and the linear segmentation head while keeping the pretrained image and text backbones frozen.
+
+### Data Setup
+
+Training uses referential segmentation supervision from the [SteerViT training dataset on Hugging Face](https://huggingface.co/datasets/JonaRuthardt/SteerViT). The Hugging Face dataset provides the training examples, referential expressions, and masks and is downloaded automatically. The image files are resolved locally, so you also need local copies of the source image datasets referenced by the annotations.
+
+Follow the dataset card on Hugging Face for dataset-specific download notes and specify the local image paths in `configs/data.yaml`. The expected local layout is:
+
+```text
+/path/to/coco/
+  train2014/
+  val2014/
+
+/path/to/visual_genome/
+  VG_100K/
+  VG_100K_2/
+
+/path/to/mapillary/images/
+  *.jpg
+```
+
+### Launch Training
+
+Training currently expects CUDA GPUs and uses the NCCL distributed backend. Install the package in editable mode, then start training from the repository root:
+
+```bash
+python train.py \
+  --config configs/default.yaml \
+  --data_config configs/data.yaml
+```
+
+`configs/default.yaml` contains the model, optimizer, evaluation, checkpointing, and Weights & Biases settings. You can override training config values from the command line with OmegaConf-style arguments:
+
+```bash
+python train.py \
+  --config configs/default.yaml \
+  --data_config configs/data.yaml \
+  train.train_iters=10000 \
+  train.batch_size=8 \
+  eval.every_n_steps=1000
+```
+
+Checkpoints are written to `eval.checkpoint_dir` and can be used to resume the training. By default, validation tracks `pmass` (probability mass of predicted segmentation within the GT mask)
+
+Resume training with:
+
+```bash
+python train.py \
+  --config configs/default.yaml \
+  --data_config configs/data.yaml \
+  --checkpoint path/to/checkpoint.pth
+```
+
+The published checkpoints were trained for 500k iterations on 4 H100 GPUs (~19 hours).
+
 ## 📑 `SteerViT` API
 
 The main public entry point is:
@@ -166,8 +224,6 @@ For an interactive walkthrough, use one of the following:
 - [Colab](https://colab.research.google.com/drive/1Lf-95znqXaWUGyY9bPeJQI9Eq7yBcpFl?usp=sharing)
 - [Local notebook](demo.ipynb)
 
-The current release focuses on inference, qualitative exploration, and CORE evaluation. Training code and additional evaluation pipelines will be added in a future code release.
-
 ## 🧪 CORE Evaluation
 
 This repository includes the CORE benchmark evaluation used in the paper. The script loads the [CORE dataset on Hugging Face](https://huggingface.co/datasets/JonaRuthardt/CORE), encodes each scene with the object-specific prompts, and reports retrieval Precision@k.
@@ -186,7 +242,7 @@ If you use SteerViT in your research, please cite:
 
 ```bibtex
 @misc{ruthardt2026steervit,
-      title={Steerable Visual Representations}, 
+      title={Steerable Visual Representations},
       author={Jona Ruthardt and Manu Gaur and Deva Ramanan and Makarand Tapaswi and Yuki M. Asano},
       journal={arXiv:2604.02327},
       year={2026}

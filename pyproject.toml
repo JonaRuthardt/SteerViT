@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "steervit"
-version = "0.1.0"
-description = "Inference package for SteerViT"
+version = "0.2.0"
+description = "Inference and training package for SteerViT"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
@@ -41,7 +41,8 @@ dependencies = [
   "ipykernel",
   "ipywidgets",
   "jupyterlab",
-  "umap-learn"
+  "umap-learn",
+  "wandb"
 ]
 
 [tool.setuptools]

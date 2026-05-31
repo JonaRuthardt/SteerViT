@@ -1,0 +1,4 @@
+dataset: "JonaRuthardt/SteerViT"
+mscoco: "path/to/mscoco/images"
+visual_genome: "path/to/visual_genome/images"
+mapillary: "path/to/mapillary/images"
