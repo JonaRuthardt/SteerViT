@@ -1,3 +1,18 @@
+<div align="center">
+
+> ## 🚚 Official Repository Moved 🚨
+>
+> The official SteerViT repository is now available at:
+>
+> ### [github.com/manugaurdl/SteerViT](https://github.com/manugaurdl/SteerViT)
+>
+> Please use the new repository for the latest code, checkpoints, documentation, issues, and updates.
+
+</div>
+
+---
+
+
 <p>
   <h2 align="center">Steerable Visual Representations</h2>
   <p align="center">
